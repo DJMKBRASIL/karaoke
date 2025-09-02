@@ -29,6 +29,15 @@
         #score-display {
             transition: transform 0.3s ease-in-out, color 0.3s ease-in-out;
         }
+        /* Estilo para botões desativados */
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+         input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="background-gradient text-gray-200">
@@ -48,13 +57,13 @@
                         <p id="placeholder-title" class="text-2xl">Seu vídeo aparecerá aqui</p>
                         <p id="placeholder-subtitle">Use a busca ao lado e cole o link da música abaixo</p>
                     </div>
-                    <div id="player" class="w-full h-full hidden"></div>
+                    <div id="player" class="w-full h-full"></div> <!-- Removido o 'hidden' inicial para o JS controlar -->
                 </div>
                  <div class="mt-4">
                     <label for="youtube-link" class="block mb-2 text-sm font-medium text-gray-300">Cole um link do YouTube para tocar:</label>
                     <div class="flex gap-2">
-                        <input type="text" id="youtube-link" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5" placeholder="https://www.youtube.com/watch?v=...">
-                        <button id="load-video-btn" class="text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5">Carregar</button>
+                        <input type="text" id="youtube-link" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-2.5" placeholder="Aguarde, a inicializar..." disabled>
+                        <button id="load-video-btn" class="text-white bg-violet-600 hover:bg-violet-700 focus:ring-4 focus:ring-violet-800 font-medium rounded-lg text-sm px-5 py-2.5" disabled>Carregar</button>
                     </div>
                     <p id="error-message" class="text-red-500 text-sm mt-1 hidden">Por favor, insira um link válido do YouTube.</p>
                 </div>
@@ -65,11 +74,11 @@
                 <h2 class="text-2xl font-bold mb-4 text-white">Descubra Novas Músicas</h2>
                 <div class="flex flex-col gap-4">
                     <input type="text" id="discovery-search-input" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block w-full p-3" placeholder="Digite o nome da música ou artista...">
-                    <button id="discovery-search-btn" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                    <button id="discovery-search-btn" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center" disabled>
                         🔎 Buscar no YouTube
                     </button>
                     <hr class="border-gray-700 my-2">
-                    <button id="random-song-btn" class="w-full text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:bg-gradient-to-l focus:ring-4 focus:outline-none focus:ring-purple-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                    <button id="random-song-btn" class="w-full text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:bg-gradient-to-l focus:ring-4 focus:outline-none focus:ring-purple-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center" disabled>
                         ✨ Surpreenda-me!
                     </button>
                     <p id="popup-notice" class="text-xs text-center text-amber-400 mt-2 hidden"></p>
@@ -119,31 +128,48 @@
         let player;
         let scoreAnimationInterval;
         
-        // Lista de títulos de músicas para a função "Surpreenda-me"
         const randomSongTitles = [
             "Bohemian Rhapsody Queen", "Como Nossos Pais Elis Regina", "Hotel California Eagles",
             "Billie Jean Michael Jackson", "Smells Like Teen Spirit Nirvana", "Imagine John Lennon",
             "Evidências Chitãozinho & Xororó", "Cheia de Manias Raça Negra", "Anna Julia Los Hermanos"
         ];
         
-        function onYouTubeIframeAPIReady() {}
+        // Esta função é chamada AUTOMATICAMENTE pela API do YouTube quando o código está pronto.
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                playerVars: { 'playsinline': 1 },
+                events: {
+                    'onReady': onPlayerReady, // Evento que indica que o leitor está pronto
+                    'onStateChange': onPlayerStateChange,
+                    'onError': onPlayerError
+                }
+            });
+        }
+        
+        // Esta função é chamada quando o leitor de vídeo está pronto.
+        function onPlayerReady(event) {
+            // AGORA sim, ativamos os controlos, pois o leitor está 100% funcional.
+            loadVideoBtn.disabled = false;
+            youtubeLinkInput.disabled = false;
+            discoverySearchBtn.disabled = false;
+            randomSongBtn.disabled = false;
+            youtubeLinkInput.placeholder = "https://www.youtube.com/watch?v=...";
+            playerDiv.classList.add('hidden'); // Esconde o leitor até um vídeo ser carregado
+        }
 
         function loadVideo(videoId) {
             playerPlaceholder.classList.add('hidden');
             playerDiv.classList.remove('hidden');
-
-            if (player) {
+            if (player && typeof player.loadVideoById === 'function') {
                 player.loadVideoById(videoId);
-            } else {
-                player = new YT.Player('player', {
-                    height: '100%', width: '100%', videoId: videoId,
-                    playerVars: { 'playsinline': 1, 'autoplay': 1, 'controls': 1 },
-                    events: { 'onStateChange': onPlayerStateChange, 'onError': onPlayerError }
-                });
+                player.playVideo();
             }
         }
         
         function onPlayerStateChange(event) {
+            // Se o vídeo terminar (state 0), mostra a pontuação
             if (event.data == YT.PlayerState.ENDED) {
                 player.stopVideo();
                 showScoreSequence();
@@ -152,12 +178,12 @@
         
         function onPlayerError(event) {
             console.error("YouTube Player Error Code:", event.data);
+            playerDiv.classList.add('hidden');
+            playerPlaceholder.classList.remove('hidden');
             const placeholderTitle = document.getElementById('placeholder-title');
             const placeholderSubtitle = document.getElementById('placeholder-subtitle');
             placeholderTitle.textContent = "😕 Ops! Vídeo indisponível";
             placeholderSubtitle.innerHTML = "Este vídeo foi removido, é privado, ou não pode ser incorporado.<br>Por favor, tente outro link.";
-            playerDiv.classList.add('hidden');
-            playerPlaceholder.classList.remove('hidden');
         }
 
         function showScoreSequence() {
@@ -203,25 +229,16 @@
         
         youtubeLinkInput.addEventListener('keypress', e => { if (e.key === 'Enter') loadVideoBtn.click(); });
         
-        // ** FUNÇÃO DE BUSCA ATUALIZADA COM FEEDBACK **
         function searchOnYouTube(query) {
             if (query) {
                 const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' karaokê')}`;
-                
-                popupNotice.textContent = 'A abrir o YouTube numa nova aba...';
-                popupNotice.classList.remove('hidden');
-
-                const newWindow = window.open(searchUrl, '_blank');
-
-                if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-                    // Se a nova janela foi bloqueada, avisa o utilizador.
-                    popupNotice.textContent = 'O seu navegador bloqueou a nova aba. Por favor, permita pop-ups para este site.';
-                } else {
-                    // Esconde a mensagem se a janela abriu com sucesso.
-                    setTimeout(() => {
-                        popupNotice.classList.add('hidden');
-                    }, 4000);
-                }
+                const link = document.createElement('a');
+                link.href = searchUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
         }
 
@@ -251,6 +268,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
